@@ -5,7 +5,7 @@ import xmltodict
 logger = logging.getLogger()
 
 class KiwixAPI():
-    def __init__(self, kiwix_server: str = None) -> object:
+    def __init__(self, kiwix_server: str) -> object:
         self.kiwix_server = kiwix_server
 
     def _api_request(self, method: str = "GET", path: str = "", params: dict = {}) -> str:
