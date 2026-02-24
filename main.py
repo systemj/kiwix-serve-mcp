@@ -2,6 +2,9 @@ import html2text
 import json
 import kiwix_api
 import os
+
+from dataclasses import dataclass
+# from mcp.server.fastmcp import FastMCP
 from fastmcp import FastMCP
 
 kiwix_server = os.environ.get("KIWIX_SERVER")
@@ -9,23 +12,27 @@ kiwix = kiwix_api.KiwixAPI(kiwix_server=kiwix_server)
 
 h2t = html2text.HTML2Text()
 
-mcp = FastMCP(
-    "Kiwix MCP"
-    """
-    The MCP server provides access to reference materials such as encyclopedia articles.
+mcp = FastMCP("Access to reference materials such as encyclopedia articles.")
 
-    The resources and tools should be used in the following way:
-    - First use the data://collections resource to identify the different collections of content.
-    - Select the collection most likely to contain relevant information for the given context, and note uuid value for this collection
-    - call the searchCollection() tool with the uuid for the chosen collection and a short text string to search for articles
-    - review the list of articles returned and chose the most relevant based on the text excerpt; note the "link" value for this article
-    - finally you must call getArticle() using the "link" value from searchCollection() to retrieve the complete content the article.
-    """
-)
+@dataclass
+class Collection:
+    uuid: str
+    title: str
+    summary: str
 
+@dataclass
+class SearchResult:
+    title: str
+    link: str
+    excerpt: str
 
-@mcp.resource("data://collections")
-def listCollections() -> str:
+@dataclass
+class Article:
+    direct_link: str
+    content: str
+
+@mcp.tool()
+def listCollections() -> list[Collection]:
     """
     Returns list of content collections available.
     Each item contains the following fields:
@@ -36,23 +43,23 @@ def listCollections() -> str:
     collections = []
     for entry in kiwix.list_books()["feed"]["entry"]:
         collections.append(
-            {
-                "uuid": entry["id"].split(":")[2],
-                "title": entry["title"],
-                "summary": entry["summary"],
-            }
+            Collection(
+                uuid = entry["id"].split(":")[2],
+                title = entry["title"],
+                summary = entry["summary"]
+            )
         )
-    return json.dumps(collections)
+    return collections
 
 
-@mcp.tool
-def searchCollection(uuid: str, pattern: str) -> str:
+@mcp.tool()
+def searchCollection(uuid: str, pattern: str) -> list[SearchResult]:
     """
     Search for articles in a collection that match the pattern text.
     returns a list of matching articles with the following data:
         title: The title of the article
         link: A link for retrieving the full content of an article when calling getArticle()
-        text: A short text excerpt from the article for review to determine if this article is relevant
+        excerpt: A short text excerpt from the article for review to determine if this article is relevant
     :param uuid: The uuid of the collection to search as returned from data://collections - REQUIRED must not be empty
     :param pattern: Text keywords used to search for relevant articles - REQUIRED must not be empty
     """
@@ -61,20 +68,20 @@ def searchCollection(uuid: str, pattern: str) -> str:
             results = []
             for result in kiwix.search(uuid=uuid, pattern=pattern)["rss"]["channel"]["item"]:
                 results.append(
-                    {
-                        "title": result["title"],
-                        "link": result["link"],
-                        "text": result["description"]["#text"],
-                    }
+                    SearchResult(
+                        title = result["title"],
+                        link = result["link"],
+                        excerpt = result["description"]["#text"],
+                    )
                 )
         except Exception as e:
             results = {"error": e}
     else:
         results = {"error": 'you must provide both "uuid" and "pattern"'}
-    return json.dumps(results)
+    return results
 
-@mcp.tool
-def getArticle(link: str) -> str:
+@mcp.tool()
+def getArticle(link: str) -> Article:
     """
     Retrieve the complete content of an article previously returned in search results.
     The link parameter MUST be taken from the 'link' field of searchCollection() results.
@@ -86,8 +93,10 @@ def getArticle(link: str) -> str:
     if link:
         try:
             content = kiwix.get_content(link)
-            response = {"direct_link": f"{kiwix_server}{link}", "content": h2t.handle(content)}
-            return json.dumps(response)
+            return Article(
+                direct_link = f"{kiwix_server}{link}",
+                content = h2t.handle(content)
+            )
         except Exception as e:
             return {"error": e}
     else:
