@@ -1,10 +1,8 @@
 import html2text
-import json
 import kiwix_api
 import os
 
-from dataclasses import dataclass
-# from mcp.server.fastmcp import FastMCP
+from dataclasses import dataclass, field
 from fastmcp import FastMCP
 
 kiwix_server = os.environ.get("KIWIX_SERVER")
@@ -16,30 +14,24 @@ mcp = FastMCP("Access to reference materials such as encyclopedia articles.")
 
 @dataclass
 class Collection:
-    uuid: str
-    title: str
-    summary: str
+    uuid: str = field(metadata={"description": "unique identifier used with searchCollection()"})
+    title: str = field(metadata={"description": "collection title"})
+    summary: str = field(metadata={"description": "brief description of the collection"})
 
 @dataclass
 class SearchResult:
-    title: str
-    link: str
-    excerpt: str
+    title: str = field(metadata={"description": "article title"})
+    link: str = field(metadata={"description": "link to retrieve article content with getArticle()"})
+    excerpt: str = field(metadata={"description": "short text excerpt from the article to review"})
 
 @dataclass
 class Article:
-    direct_link: str
-    content: str
+    direct_link: str = field(metadata={"description": "A direct link to the full article suitable for viewing in a web browser"})
+    content: str = field(metadata={"description": "The text content of the article"})
 
 @mcp.tool()
 def listCollections() -> list[Collection]:
-    """
-    Returns list of content collections available.
-    Each item contains the following fields:
-        uuid: A unique identifer for this specific collection - used when calling searchCollection()
-        title: The title of the collection
-        summary: A short description of the collection content
-    """
+    """ Get a list of content collections available """
     collections = []
     for entry in kiwix.list_books()["feed"]["entry"]:
         collections.append(
@@ -51,16 +43,11 @@ def listCollections() -> list[Collection]:
         )
     return collections
 
-
 @mcp.tool()
 def searchCollection(uuid: str, pattern: str) -> list[SearchResult]:
     """
     Search for articles in a collection that match the pattern text.
-    returns a list of matching articles with the following data:
-        title: The title of the article
-        link: A link for retrieving the full content of an article when calling getArticle()
-        excerpt: A short text excerpt from the article for review to determine if this article is relevant
-    :param uuid: The uuid of the collection to search as returned from data://collections - REQUIRED must not be empty
+    :param uuid: The uuid of the collection to search as returned from listCollections() - REQUIRED must not be empty
     :param pattern: Text keywords used to search for relevant articles - REQUIRED must not be empty
     """
     if all([uuid, pattern]):
@@ -84,11 +71,7 @@ def searchCollection(uuid: str, pattern: str) -> list[SearchResult]:
 def getArticle(link: str) -> Article:
     """
     Retrieve the complete content of an article previously returned in search results.
-    The link parameter MUST be taken from the 'link' field of searchCollection() results.
-    returns the complete content of an article with the following data:
-        direct_link: A direct link to the article that can be viewed in a web browser (can be provided to the user for reference)
-        content: The complete content of the article
-    :param link: A relative link to the article as returned by searchCollection() - REQUIRED, must not be empty
+    :param link: A link to the article as returned by searchCollection() - REQUIRED, must not be empty
     """
     if link:
         try:
@@ -105,6 +88,3 @@ def getArticle(link: str) -> Article:
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=8000)
-    # print(listcollections())
-    # print(searchBook(uuid="73c3567c-dcb3-597b-5168-f15d9c4b7470", pattern="The Metamorphosis of Prime Intellect"))
-    # print(getArticle(link="/content/wikipedia_en_all_nopic_2025-12/The_Metamorphosis_of_Prime_Intellect"))
