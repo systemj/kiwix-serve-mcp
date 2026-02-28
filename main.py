@@ -50,21 +50,15 @@ def searchCollection(uuid: str, pattern: str) -> list[SearchResult]:
     :param uuid: The uuid of the collection to search as returned from listCollections() - REQUIRED must not be empty
     :param pattern: Text keywords used to search for relevant articles - REQUIRED must not be empty
     """
-    if all([uuid, pattern]):
-        try:
-            results = []
-            for result in kiwix.search(uuid=uuid, pattern=pattern)["rss"]["channel"]["item"]:
-                results.append(
-                    SearchResult(
-                        title = result["title"],
-                        link = result["link"],
-                        excerpt = result["description"]["#text"],
-                    )
-                )
-        except Exception as e:
-            results = {"error": e}
-    else:
-        results = {"error": 'you must provide both "uuid" and "pattern"'}
+    results = []
+    for result in kiwix.search(uuid=uuid, pattern=pattern)["rss"]["channel"]["item"]:
+        results.append(
+            SearchResult(
+                title = result["title"],
+                link = result["link"],
+                excerpt = result["description"]["#text"],
+            )
+        )
     return results
 
 @mcp.tool()
@@ -73,17 +67,11 @@ def getArticle(link: str) -> Article:
     Retrieve the complete content of an article previously returned in search results.
     :param link: A link to the article as returned by searchCollection() - REQUIRED, must not be empty
     """
-    if link:
-        try:
-            content = kiwix.get_content(link)
-            return Article(
-                direct_link = f"{kiwix_server}{link}",
-                content = h2t.handle(content)
-            )
-        except Exception as e:
-            return {"error": e}
-    else:
-        return {"error": 'you must provide "link"'}
+    content = kiwix.get_content(link)
+    return Article(
+        direct_link = f"{kiwix_server}{link}",
+        content = h2t.handle(content)
+    )
 
 
 if __name__ == "__main__":
