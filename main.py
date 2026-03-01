@@ -4,6 +4,7 @@ import os
 
 from dataclasses import dataclass, field
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 kiwix_server = os.environ.get("KIWIX_SERVER")
 kiwix = kiwix_api.KiwixAPI(kiwix_server=kiwix_server)
@@ -52,11 +53,16 @@ def searchCollection(uuid: str, pattern: str) -> list[SearchResult]:
     """
     results = []
     for result in kiwix.search(uuid=uuid, pattern=pattern)["rss"]["channel"]["item"]:
+        text = ""
+        if isinstance(result["description"], str):
+            text = result["description"]
+        elif isinstance(result["description"], dict):
+            text = result["description"]["#text"]
         results.append(
             SearchResult(
                 title = result["title"],
                 link = result["link"],
-                excerpt = result["description"]["#text"],
+                excerpt = text,
             )
         )
     return results
@@ -73,6 +79,9 @@ def getArticle(link: str) -> Article:
         content = h2t.handle(content)
     )
 
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "healthy", "service": "kiwix-server-mcp"})
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=8000)

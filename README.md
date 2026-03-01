@@ -29,3 +29,15 @@ When responding, *ALWAYS* perform the following steps:
 
 ### example query
 ![example image](open-webui-example.png)
+
+## build
+```bash
+docker build -t systemj/kiwix-server-mcp .
+helm package chart
+```
+
+## publish
+```bash
+docker push systemj/kiwix-server-mcp
+helm push kiwix-server-mcp-0.1.0.tgz oci://registry-1.docker.io/systemj
+```
